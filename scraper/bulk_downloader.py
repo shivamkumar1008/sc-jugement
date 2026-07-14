@@ -199,42 +199,43 @@ def run_bulk_download(
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
 
             # Submit jobs as we stream keys (no upfront full listing)
-            futures = {}
+            futures = set()
             key_stream = stream_s3_pdf_keys(prefix=prefix, max_keys=max_keys, years=years)
 
             # Fill initial batch
-            for key in islice(key_stream, max_workers * 2):
-                futures[pool.submit(_transfer_and_process, key)] = key
+            for key in islice(key_stream, max_workers):
+                futures.add(pool.submit(_transfer_and_process, key))
 
             # Process as futures complete, refill from stream
+            from concurrent.futures import wait, FIRST_COMPLETED
             while futures:
-                try:
-                    # Retrieve the next completed future dynamically
-                    future = next(as_completed(futures))
-                    key = futures.pop(future)
-                except Exception as e:
-                    logger.error(f"Error retrieving completed future: {e}")
-                    break
+                # Wait for at least one future to complete
+                done, not_done = wait(futures, return_when=FIRST_COMPLETED)
+                
+                for future in done:
+                    try:
+                        processed = future.result()
+                        if processed:
+                            success += 1
+                        else:
+                            skip += 1
+                    except Exception as e:
+                        logger.error(f"Unhandled exception processing: {e}")
+                        error += 1
 
-                try:
-                    processed = future.result()
-                    if processed:
-                        success += 1
-                    else:
-                        skip += 1
-                except Exception as e:
-                    logger.error(f"Unhandled exception processing {key}: {e}")
-                    error += 1
-
-                pbar.update(1)
-                pbar.set_postfix(stored=success, skip=skip, err=error)
-
-                # Refill from stream
-                try:
-                    next_key = next(key_stream)
-                    futures[pool.submit(_transfer_and_process, next_key)] = next_key
-                except StopIteration:
-                    pass  # stream exhausted
+                    pbar.update(1)
+                    pbar.set_postfix(stored=success, skip=skip, err=error)
+                
+                # The remaining futures that haven't finished yet
+                futures = not_done
+                
+                # Refill the pool back up to max_workers
+                while len(futures) < max_workers:
+                    try:
+                        next_key = next(key_stream)
+                        futures.add(pool.submit(_transfer_and_process, next_key))
+                    except StopIteration:
+                        break  # stream exhausted
 
     logger.success(f"Done! Stored={success} | Skipped={skip} | Errors={error}")
 
