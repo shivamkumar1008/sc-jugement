@@ -5,6 +5,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Tesseract is extremely thread-heavy. Limit it to 1 thread per worker
+      # otherwise 5 workers * 4 threads = 20 threads thrashing on a 4-core VPS!
+      - OMP_THREAD_LIMIT=1
     # Override here (not in Dockerfile) so you can retune without rebuilding —
     # `docker compose up -d --build` picks up edits to this line immediately.
     command: ["--workers", "4"]
