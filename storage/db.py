@@ -115,6 +115,7 @@ INSERT INTO judgments (
     case_number, case_type, year, judgment_date,
     bench, petitioner, respondent,
     acts_cited, cases_cited, summary, holding,
+    title, result, tags, applicability,
     full_text, content_hash, pdf_s3_key
 )
 VALUES %s
@@ -150,6 +151,10 @@ def bulk_insert_judgments(records: list[dict], conn=None) -> int:
             r.get("cases_cited", []),
             _v(r.get("summary")),
             _v(r.get("holding")),
+            _v(r.get("title")),
+            _v(r.get("result")),
+            r.get("tags", []),
+            _v(r.get("applicability")),
             _v(r.get("full_text")),
             _v(r.get("content_hash")),
             _v(r.get("pdf_s3_key")),
