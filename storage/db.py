@@ -171,6 +171,25 @@ def bulk_insert_judgments(records: list[dict], conn=None) -> int:
             put_connection(conn)
 
 
+_scraped_cache = None
+
+def _load_scraped_cache():
+    global _scraped_cache
+    if _scraped_cache is not None:
+        return
+    
+    _scraped_cache = set()
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            logger.info("Loading scrape_log cache into memory...")
+            cur.execute("SELECT key FROM scrape_log WHERE status = 'done'")
+            for row in cur.fetchall():
+                _scraped_cache.add(row[0])
+            logger.info(f"Loaded {len(_scraped_cache)} processed keys into cache.")
+    finally:
+        put_connection(conn)
+
 def log_scrape(source: str, key: str, status: str, error_msg: str = None):
     """Write a row to scrape_log for resume/checkpoint support."""
     conn = get_connection()
@@ -188,22 +207,20 @@ def log_scrape(source: str, key: str, status: str, error_msg: str = None):
                 (source, key, status, error_msg),
             )
         conn.commit()
+        
+        # Update cache if it exists and status is done
+        global _scraped_cache
+        if _scraped_cache is not None and status == 'done':
+            _scraped_cache.add(key)
+            
     finally:
         put_connection(conn)
 
 
 def already_scraped(key: str) -> bool:
     """Return True if this key has already been successfully processed."""
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM scrape_log WHERE key = %s AND status = 'done'",
-                (key,),
-            )
-            return cur.fetchone() is not None
-    finally:
-        put_connection(conn)
+    _load_scraped_cache()
+    return key in _scraped_cache
 
 
 if __name__ == "__main__":
