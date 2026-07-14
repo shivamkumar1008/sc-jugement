@@ -55,7 +55,6 @@ def put_connection(conn):
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS judgments (
     id               BIGSERIAL PRIMARY KEY,
-    title            TEXT,                 -- e.g. "Kesavananda Bharati v. State of Kerala"
     case_number      TEXT,
     case_type        TEXT,
     year             INTEGER,
@@ -63,19 +62,13 @@ CREATE TABLE IF NOT EXISTS judgments (
     bench            TEXT[],
     petitioner       TEXT,
     respondent       TEXT,
-    result           TEXT,
     acts_cited       TEXT[],
     cases_cited      TEXT[],
-    tags             TEXT[],               -- e.g. ["Constitutional", "Fundamental Rights"]
     summary          TEXT,                 -- Short summary / doctrine
     holding          TEXT,                 -- The core legal holding
-    applicability    TEXT,                 -- Applicability to lower courts
     full_text        TEXT,
     content_hash     TEXT UNIQUE,          -- SHA-256 of full_text for dedup
-    source_url       TEXT,                 -- S3 URL to the PDF
-    pdf_s3_key       TEXT,                 -- S3 object key for original PDF
-    quality_score    REAL DEFAULT 0,
-    scraped_at       TIMESTAMPTZ DEFAULT NOW()
+    pdf_s3_key       TEXT                  -- S3 object key for original PDF
 );
 
 CREATE INDEX IF NOT EXISTS idx_year         ON judgments(year);
@@ -119,10 +112,10 @@ def init_db():
 
 INSERT_JUDGMENT_SQL = """
 INSERT INTO judgments (
-    title, case_number, case_type, year, judgment_date,
-    bench, petitioner, respondent, result,
-    acts_cited, cases_cited, tags, summary, holding, applicability,
-    full_text, content_hash, source_url, pdf_s3_key, quality_score
+    case_number, case_type, year, judgment_date,
+    bench, petitioner, respondent,
+    acts_cited, cases_cited, summary, holding,
+    full_text, content_hash, pdf_s3_key
 )
 VALUES %s
 ON CONFLICT (content_hash) DO NOTHING
@@ -146,7 +139,6 @@ def bulk_insert_judgments(records: list[dict], conn=None) -> int:
 
     rows = [
         (
-            _v(r.get("title")),
             _v(r.get("case_number")),
             _v(r.get("case_type")),
             r.get("year"),
@@ -154,18 +146,13 @@ def bulk_insert_judgments(records: list[dict], conn=None) -> int:
             r.get("bench", []),
             _v(r.get("petitioner")),
             _v(r.get("respondent")),
-            _v(r.get("result")),
             r.get("acts_cited", []),
             r.get("cases_cited", []),
-            r.get("tags", []),
             _v(r.get("summary")),
             _v(r.get("holding")),
-            _v(r.get("applicability")),
             _v(r.get("full_text")),
             _v(r.get("content_hash")),
-            _v(r.get("source_url")),
             _v(r.get("pdf_s3_key")),
-            r.get("quality_score", 0.0),
         )
         for r in records
     ]
