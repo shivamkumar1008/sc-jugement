@@ -1,0 +1,17 @@
+services:
+  scraper:
+    build: .
+    container_name: writon-scraper
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Override here (not in Dockerfile) so you can retune without rebuilding —
+    # `docker compose up -d --build` picks up edits to this line immediately.
+    command: ["--years", "1950-2025", "--workers", "4"]
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
