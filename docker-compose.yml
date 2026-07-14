@@ -7,7 +7,7 @@ services:
       - .env
     # Override here (not in Dockerfile) so you can retune without rebuilding —
     # `docker compose up -d --build` picks up edits to this line immediately.
-    command: ["--years", "1950-2025", "--workers", "4"]
+    command: ["--workers", "4"]
     volumes:
       - ./data:/app/data
     logging:

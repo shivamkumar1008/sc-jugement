@@ -20,7 +20,11 @@ from tqdm import tqdm
 from loguru import logger
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from scraper.config import PUBLIC_S3_BUCKET, PUBLIC_S3_REGION, R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_ACCESS_KEY, R2_SECRET_KEY, RAW_PDF_DIR
+from scraper.config import (
+    PUBLIC_S3_BUCKET, PUBLIC_S3_REGION, R2_ENDPOINT_URL, 
+    R2_BUCKET_NAME, R2_ACCESS_KEY, R2_SECRET_KEY, RAW_PDF_DIR,
+    START_YEAR, END_YEAR
+)
 from storage.db import log_scrape, already_scraped, bulk_insert_judgments, init_db
 from processor.pdf_extractor import extract_pdf
 
@@ -270,6 +274,11 @@ if __name__ == "__main__":
             years_list = list(range(start, end + 1))
         else:
             years_list = [int(y.strip()) for y in args.years.split(",") if y.strip()]
+    elif args.year:
+        years_list = [args.year]
+    elif START_YEAR and END_YEAR:
+        logger.info(f"No --years provided via CLI, falling back to .env: {START_YEAR}-{END_YEAR}")
+        years_list = list(range(START_YEAR, END_YEAR + 1))
 
     run_bulk_download(
         prefix=args.prefix,
