@@ -281,8 +281,8 @@ def _extract_text_pymupdf(pdf_path: Path = None, pdf_bytes: bytes = None, pdf_na
             text = page.get_text("text").strip()
 
             if len(text) < 50 and OCR_OK:
-                # Scanned page — render at 300 DPI and run Tesseract
-                pix = page.get_pixmap(dpi=300)
+                # Scanned page — render at 150 DPI (instead of 300) for MUCH faster OCR
+                pix = page.get_pixmap(dpi=150)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 text = pytesseract.image_to_string(img, lang="eng")
                 logger.debug(f"  OCR used on page {page_num + 1} of {pdf_name}")
